@@ -212,6 +212,23 @@ function startFakeCustomerApi(port = 0) {
       return;
     }
 
+    if (clientId === "write-malformed-json") {
+      res.writeHead(201, {
+        "Content-Type": "application/json",
+      });
+      res.end('{"note_id":"broken"');
+      return;
+    }
+
+    if (clientId === "write-invalid-shape") {
+      sendJson(res, 201, {
+        note_id: 123,
+        client_no: null,
+        text: false,
+      });
+      return;
+    }
+
     const existing = idempotencyRecords.get(idempotencyKey);
 
     if (existing) {
