@@ -95,6 +95,21 @@ function startFakeCustomerApi(port = 0) {
       return;
     }
 
+    if (clientId === "invalid-shape") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          client_no: 123,
+          full_name: null,
+          contact: {
+            email_address: 456,
+          },
+          status_code: "A",
+        }),
+      );
+      return;
+    }
+
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(buildClient(clientId)));
   });
