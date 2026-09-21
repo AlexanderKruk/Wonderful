@@ -1,9 +1,0 @@
-{
-  "name": "customer-connector",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js"
-  }
-}
