@@ -15,6 +15,8 @@ type CustomerSystemResponse = {
 };
 
 export class CustomerConnector {
+  constructor(private readonly baseUrl: string) {}
+
   async getClient(clientId: string): Promise<Client> {
     const rawClient = await this.getClientFromCustomerSystem(clientId);
 
@@ -42,41 +44,24 @@ export class CustomerConnector {
   private async getClientFromCustomerSystem(
     clientId: string,
   ): Promise<CustomerSystemResponse> {
-    if (clientId === "missing") {
-      throw new CustomerNotFoundError(clientId);
-    }
+    let response: Response;
 
-    if (clientId === "system-down") {
+    try {
+      response = await fetch(
+        `${this.baseUrl}/clients/${encodeURIComponent(clientId)}`,
+      );
+    } catch {
       throw new CustomerSystemUnavailableError();
     }
 
-    if (clientId === "no-contact") {
-      return {
-        client_no: clientId,
-        full_name: "Jan Kowalski",
-        contact: null,
-        status_code: "A",
-      };
+    if (response.status === 404) {
+      throw new CustomerNotFoundError(clientId);
     }
 
-    if (clientId === "unknown-status") {
-      return {
-        client_no: clientId,
-        full_name: "Marta Zielinska",
-        contact: {
-          email_address: "marta@example.com",
-        },
-        status_code: "X",
-      };
+    if (!response.ok) {
+      throw new CustomerSystemUnavailableError();
     }
 
-    return {
-      client_no: clientId,
-      full_name: "Anna Nowak",
-      contact: {
-        email_address: "anna@example.com",
-      },
-      status_code: "A",
-    };
+    return (await response.json()) as CustomerSystemResponse;
   }
 }
