@@ -36,32 +36,38 @@ export function parseCustomerSystemResponse(
     );
   }
 
-  if (value.contact !== null) {
+  let contact: CustomerSystemResponse["contact"];
+
+  if (value.contact === null) {
+    contact = null;
+  } else {
     if (!isRecord(value.contact)) {
       throw new InvalidCustomerResponseError(
         "Customer response field contact must be an object or null",
       );
     }
 
+    const emailAddress = value.contact.email_address;
+
     if (
-      value.contact.email_address !== undefined &&
-      typeof value.contact.email_address !== "string"
+      emailAddress !== undefined &&
+      typeof emailAddress !== "string"
     ) {
       throw new InvalidCustomerResponseError(
         "Customer response field contact.email_address must be a string",
       );
     }
+
+    contact =
+      emailAddress === undefined
+        ? {}
+        : { email_address: emailAddress };
   }
 
   return {
     client_no: value.client_no,
     full_name: value.full_name,
-    contact:
-      value.contact === null
-        ? null
-        : {
-            email_address: value.contact.email_address,
-          },
+    contact,
     status_code: value.status_code,
   };
 }
