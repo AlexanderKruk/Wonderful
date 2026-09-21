@@ -68,11 +68,47 @@ test("reports a missing customer", async () => {
   );
 });
 
-test("reports customer-system unavailability", async () => {
+test("maps HTTP 429 to customer-system unavailability", async () => {
+  const connector = new CustomerConnector(baseUrl);
+
+  await assert.rejects(
+    () => connector.getClient("rate-limited"),
+    CustomerSystemUnavailableError,
+  );
+});
+
+test("maps HTTP 500 to customer-system unavailability", async () => {
+  const connector = new CustomerConnector(baseUrl);
+
+  await assert.rejects(
+    () => connector.getClient("server-error"),
+    CustomerSystemUnavailableError,
+  );
+});
+
+test("maps HTTP 503 to customer-system unavailability", async () => {
   const connector = new CustomerConnector(baseUrl);
 
   await assert.rejects(
     () => connector.getClient("system-down"),
+    CustomerSystemUnavailableError,
+  );
+});
+
+test("rejects malformed JSON from the customer system", async () => {
+  const connector = new CustomerConnector(baseUrl);
+
+  await assert.rejects(
+    () => connector.getClient("malformed-json"),
+    InvalidCustomerResponseError,
+  );
+});
+
+test("maps network failures to customer-system unavailability", async () => {
+  const connector = new CustomerConnector("http://127.0.0.1:65534");
+
+  await assert.rejects(
+    () => connector.getClient("8123"),
     CustomerSystemUnavailableError,
   );
 });
