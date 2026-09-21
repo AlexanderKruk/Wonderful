@@ -4,15 +4,10 @@ import {
   CustomerSystemUnavailableError,
   InvalidCustomerResponseError,
 } from "./errors";
-
-type CustomerSystemResponse = {
-  client_no: string;
-  full_name: string;
-  contact: {
-    email_address?: string;
-  } | null;
-  status_code: string;
-};
+import {
+  parseCustomerSystemResponse,
+  type CustomerSystemResponse,
+} from "./customerResponse";
 
 type CustomerConnectorOptions = {
   timeoutMs?: number;
@@ -71,13 +66,17 @@ export class CustomerConnector {
       throw new CustomerSystemUnavailableError();
     }
 
+    let payload: unknown;
+
     try {
-      return (await response.json()) as CustomerSystemResponse;
+      payload = await response.json();
     } catch {
       throw new InvalidCustomerResponseError(
         "Customer system returned invalid JSON",
       );
     }
+
+    return parseCustomerSystemResponse(payload);
   }
 
   private async fetchWithRetry(clientId: string): Promise<Response> {
