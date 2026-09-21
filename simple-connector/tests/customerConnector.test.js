@@ -3,17 +3,28 @@ const assert = require("node:assert/strict");
 
 const { CustomerConnector } = require("../dist/connector/customerConnector");
 const {
+  CustomerAuthenticationError,
+  CustomerAuthorizationError,
   CustomerNotFoundError,
   CustomerSystemUnavailableError,
   InvalidCustomerResponseError,
 } = require("../dist/connector/errors");
 const {
+  FORBIDDEN_TOKEN,
+  VALID_TOKEN,
   startFakeCustomerApi,
 } = require("../fake-customer-api/server");
 
 let server;
 let baseUrl;
 let getRequestCount;
+
+function createConnector(options = {}) {
+  return new CustomerConnector(baseUrl, {
+    accessToken: VALID_TOKEN,
+    ...options,
+  });
+}
 
 before(async () => {
   const started = await startFakeCustomerApi();
@@ -31,8 +42,42 @@ after(async () => {
   });
 });
 
+test("authenticates with a valid bearer token", async () => {
+  const connector = createConnector();
+
+  const client = await connector.getClient("8123");
+
+  assert.equal(client.id, "8123");
+});
+
+test("maps missing or invalid token to authentication error without retry", async () => {
+  const connector = new CustomerConnector(baseUrl, {
+    accessToken: "wrong-token",
+  });
+
+  await assert.rejects(
+    () => connector.getClient("auth-failure"),
+    CustomerAuthenticationError,
+  );
+
+  assert.equal(getRequestCount("auth-failure"), 1);
+});
+
+test("maps valid token without permission to authorization error without retry", async () => {
+  const connector = new CustomerConnector(baseUrl, {
+    accessToken: FORBIDDEN_TOKEN,
+  });
+
+  await assert.rejects(
+    () => connector.getClient("forbidden"),
+    CustomerAuthorizationError,
+  );
+
+  assert.equal(getRequestCount("forbidden"), 1);
+});
+
 test("maps a customer-system response to Client", async () => {
-  const connector = new CustomerConnector(baseUrl);
+  const connector = createConnector();
 
   const client = await connector.getClient("8123");
 
@@ -45,7 +90,7 @@ test("maps a customer-system response to Client", async () => {
 });
 
 test("normalizes missing contact to null email", async () => {
-  const connector = new CustomerConnector(baseUrl);
+  const connector = createConnector();
 
   const client = await connector.getClient("no-contact");
 
@@ -53,7 +98,7 @@ test("normalizes missing contact to null email", async () => {
 });
 
 test("rejects an unknown customer status", async () => {
-  const connector = new CustomerConnector(baseUrl);
+  const connector = createConnector();
 
   await assert.rejects(
     () => connector.getClient("unknown-status"),
@@ -62,7 +107,7 @@ test("rejects an unknown customer status", async () => {
 });
 
 test("reports a missing customer without retrying", async () => {
-  const connector = new CustomerConnector(baseUrl);
+  const connector = createConnector();
 
   await assert.rejects(
     () => connector.getClient("missing"),
@@ -73,7 +118,7 @@ test("reports a missing customer without retrying", async () => {
 });
 
 test("maps HTTP 429 to customer-system unavailability", async () => {
-  const connector = new CustomerConnector(baseUrl);
+  const connector = createConnector();
 
   await assert.rejects(
     () => connector.getClient("rate-limited"),
@@ -82,7 +127,7 @@ test("maps HTTP 429 to customer-system unavailability", async () => {
 });
 
 test("maps HTTP 500 to customer-system unavailability", async () => {
-  const connector = new CustomerConnector(baseUrl);
+  const connector = createConnector();
 
   await assert.rejects(
     () => connector.getClient("server-error"),
@@ -91,7 +136,7 @@ test("maps HTTP 500 to customer-system unavailability", async () => {
 });
 
 test("maps HTTP 503 to customer-system unavailability", async () => {
-  const connector = new CustomerConnector(baseUrl);
+  const connector = createConnector();
 
   await assert.rejects(
     () => connector.getClient("system-down"),
@@ -100,7 +145,7 @@ test("maps HTTP 503 to customer-system unavailability", async () => {
 });
 
 test("retries transient failures and eventually succeeds", async () => {
-  const connector = new CustomerConnector(baseUrl, {
+  const connector = createConnector({
     maxRetries: 2,
     retryBaseDelayMs: 5,
   });
@@ -112,7 +157,7 @@ test("retries transient failures and eventually succeeds", async () => {
 });
 
 test("times out slow requests and retries only up to the limit", async () => {
-  const connector = new CustomerConnector(baseUrl, {
+  const connector = createConnector({
     timeoutMs: 30,
     maxRetries: 1,
     retryBaseDelayMs: 5,
@@ -127,7 +172,7 @@ test("times out slow requests and retries only up to the limit", async () => {
 });
 
 test("rejects malformed JSON from the customer system", async () => {
-  const connector = new CustomerConnector(baseUrl);
+  const connector = createConnector();
 
   await assert.rejects(
     () => connector.getClient("malformed-json"),
@@ -136,7 +181,7 @@ test("rejects malformed JSON from the customer system", async () => {
 });
 
 test("rejects valid JSON with an invalid response shape", async () => {
-  const connector = new CustomerConnector(baseUrl);
+  const connector = createConnector();
 
   await assert.rejects(
     () => connector.getClient("invalid-shape"),
@@ -148,6 +193,7 @@ test("rejects valid JSON with an invalid response shape", async () => {
 
 test("maps network failures to customer-system unavailability", async () => {
   const connector = new CustomerConnector("http://127.0.0.1:65534", {
+    accessToken: VALID_TOKEN,
     maxRetries: 1,
     retryBaseDelayMs: 5,
   });
