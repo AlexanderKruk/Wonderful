@@ -1,21 +1,5 @@
 import { CustomerConnector } from "./connector/customerConnector";
-
-async function showClient(
-  connector: CustomerConnector,
-  clientId: string,
-): Promise<void> {
-  try {
-    const client = await connector.getClient(clientId);
-    console.log(`${clientId}:`, client);
-  } catch (error) {
-    console.error(
-      `${clientId}:`,
-      error instanceof Error
-        ? `${error.name}: ${error.message}`
-        : error,
-    );
-  }
-}
+import { createGetClientTool } from "./tools/getClientTool";
 
 async function main(): Promise<void> {
   const connector = new CustomerConnector(
@@ -25,11 +9,22 @@ async function main(): Promise<void> {
     },
   );
 
-  await showClient(connector, "8123");
-  await showClient(connector, "no-contact");
-  await showClient(connector, "unknown-status");
-  await showClient(connector, "missing");
-  await showClient(connector, "system-down");
+  const getClientTool = createGetClientTool(connector);
+
+  console.log(
+    "8123:",
+    await getClientTool({ clientId: "8123" }),
+  );
+
+  console.log(
+    "missing:",
+    await getClientTool({ clientId: "missing" }),
+  );
+
+  console.log(
+    "unknown-status:",
+    await getClientTool({ clientId: "unknown-status" }),
+  );
 }
 
 main();
