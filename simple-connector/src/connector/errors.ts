@@ -12,6 +12,20 @@ export class CustomerNotFoundError extends Error {
   }
 }
 
+export class CustomerAuthenticationError extends Error {
+  constructor() {
+    super("Customer API authentication failed");
+    this.name = "CustomerAuthenticationError";
+  }
+}
+
+export class CustomerAuthorizationError extends Error {
+  constructor() {
+    super("Customer API access is forbidden");
+    this.name = "CustomerAuthorizationError";
+  }
+}
+
 export class CustomerSystemUnavailableError extends Error {
   constructor() {
     super("Customer system is unavailable");
