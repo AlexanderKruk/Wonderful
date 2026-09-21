@@ -1,4 +1,5 @@
 import { CustomerConnector } from "./connector/customerConnector";
+import { createClientNoteTool } from "./tools/createClientNoteTool";
 import { createGetClientTool } from "./tools/getClientTool";
 
 async function main(): Promise<void> {
@@ -10,20 +11,29 @@ async function main(): Promise<void> {
   );
 
   const getClientTool = createGetClientTool(connector);
+  const createNoteTool = createClientNoteTool(connector);
 
   console.log(
-    "8123:",
+    "get client:",
     await getClientTool({ clientId: "8123" }),
   );
 
   console.log(
-    "missing:",
-    await getClientTool({ clientId: "missing" }),
+    "create note:",
+    await createNoteTool({
+      clientId: "8123",
+      text: "Called customer",
+      requestId: "demo-request-1",
+    }),
   );
 
   console.log(
-    "unknown-status:",
-    await getClientTool({ clientId: "unknown-status" }),
+    "same request again:",
+    await createNoteTool({
+      clientId: "8123",
+      text: "Called customer",
+      requestId: "demo-request-1",
+    }),
   );
 }
 
