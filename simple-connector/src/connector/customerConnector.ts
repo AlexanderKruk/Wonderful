@@ -1,7 +1,10 @@
 import type { Client } from "../domain/client";
+import type { ClientNote } from "../domain/clientNote";
+import { parseClientNoteResponse } from "./clientNoteResponse";
 import {
   CustomerAuthenticationError,
   CustomerAuthorizationError,
+  CustomerIdempotencyConflictError,
   CustomerNotFoundError,
   CustomerSystemUnavailableError,
   InvalidCustomerResponseError,
@@ -45,6 +48,60 @@ export class CustomerConnector {
     };
   }
 
+  async createClientNote(
+    clientId: string,
+    text: string,
+    idempotencyKey: string,
+  ): Promise<ClientNote> {
+    if (idempotencyKey.trim() === "") {
+      throw new TypeError("idempotencyKey is required");
+    }
+
+    const url =
+      `${this.baseUrl}/clients/${encodeURIComponent(clientId)}/notes`;
+
+    const response = await this.requestWithRetry(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    if (response.status === 401) {
+      throw new CustomerAuthenticationError();
+    }
+
+    if (response.status === 403) {
+      throw new CustomerAuthorizationError();
+    }
+
+    if (response.status === 404) {
+      throw new CustomerNotFoundError(clientId);
+    }
+
+    if (response.status === 409) {
+      throw new CustomerIdempotencyConflictError();
+    }
+
+    if (!response.ok) {
+      throw new CustomerSystemUnavailableError();
+    }
+
+    let payload: unknown;
+
+    try {
+      payload = await response.json();
+    } catch {
+      throw new InvalidCustomerResponseError(
+        "Customer system returned invalid note JSON",
+      );
+    }
+
+    return parseClientNoteResponse(payload);
+  }
+
   private mapStatus(statusCode: string): Client["status"] {
     switch (statusCode) {
       case "A":
@@ -61,7 +118,10 @@ export class CustomerConnector {
   private async getClientFromCustomerSystem(
     clientId: string,
   ): Promise<CustomerSystemResponse> {
-    const response = await this.fetchWithRetry(clientId);
+    const url =
+      `${this.baseUrl}/clients/${encodeURIComponent(clientId)}`;
+
+    const response = await this.requestWithRetry(url);
 
     if (response.status === 401) {
       throw new CustomerAuthenticationError();
@@ -92,10 +152,10 @@ export class CustomerConnector {
     return parseCustomerSystemResponse(payload);
   }
 
-  private async fetchWithRetry(clientId: string): Promise<Response> {
-    const url =
-      `${this.baseUrl}/clients/${encodeURIComponent(clientId)}`;
-
+  private async requestWithRetry(
+    url: string,
+    init: RequestInit = {},
+  ): Promise<Response> {
     for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
       const controller = new AbortController();
       const timeout = setTimeout(
@@ -104,12 +164,18 @@ export class CustomerConnector {
       );
 
       try {
+        const headers = new Headers(init.headers);
+
+        if (this.accessToken) {
+          headers.set(
+            "Authorization",
+            `Bearer ${this.accessToken}`,
+          );
+        }
+
         const response = await fetch(url, {
-          headers: this.accessToken
-            ? {
-                Authorization: `Bearer ${this.accessToken}`,
-              }
-            : undefined,
+          ...init,
+          headers,
           signal: controller.signal,
         });
 
