@@ -26,6 +26,13 @@ export class CustomerAuthorizationError extends Error {
   }
 }
 
+export class CustomerIdempotencyConflictError extends Error {
+  constructor() {
+    super("Idempotency key was already used for a different request");
+    this.name = "CustomerIdempotencyConflictError";
+  }
+}
+
 export class CustomerSystemUnavailableError extends Error {
   constructor() {
     super("Customer system is unavailable");
