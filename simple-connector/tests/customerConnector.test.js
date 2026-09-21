@@ -13,11 +13,13 @@ const {
 
 let server;
 let baseUrl;
+let getRequestCount;
 
 before(async () => {
   const started = await startFakeCustomerApi();
   server = started.server;
   baseUrl = started.baseUrl;
+  getRequestCount = started.getRequestCount;
 });
 
 after(async () => {
@@ -59,13 +61,15 @@ test("rejects an unknown customer status", async () => {
   );
 });
 
-test("reports a missing customer", async () => {
+test("reports a missing customer without retrying", async () => {
   const connector = new CustomerConnector(baseUrl);
 
   await assert.rejects(
     () => connector.getClient("missing"),
     CustomerNotFoundError,
   );
+
+  assert.equal(getRequestCount("missing"), 1);
 });
 
 test("maps HTTP 429 to customer-system unavailability", async () => {
@@ -95,6 +99,33 @@ test("maps HTTP 503 to customer-system unavailability", async () => {
   );
 });
 
+test("retries transient failures and eventually succeeds", async () => {
+  const connector = new CustomerConnector(baseUrl, {
+    maxRetries: 2,
+    retryBaseDelayMs: 5,
+  });
+
+  const client = await connector.getClient("flaky");
+
+  assert.equal(client.id, "flaky");
+  assert.equal(getRequestCount("flaky"), 3);
+});
+
+test("times out slow requests and retries only up to the limit", async () => {
+  const connector = new CustomerConnector(baseUrl, {
+    timeoutMs: 30,
+    maxRetries: 1,
+    retryBaseDelayMs: 5,
+  });
+
+  await assert.rejects(
+    () => connector.getClient("slow"),
+    CustomerSystemUnavailableError,
+  );
+
+  assert.equal(getRequestCount("slow"), 2);
+});
+
 test("rejects malformed JSON from the customer system", async () => {
   const connector = new CustomerConnector(baseUrl);
 
@@ -105,7 +136,10 @@ test("rejects malformed JSON from the customer system", async () => {
 });
 
 test("maps network failures to customer-system unavailability", async () => {
-  const connector = new CustomerConnector("http://127.0.0.1:65534");
+  const connector = new CustomerConnector("http://127.0.0.1:65534", {
+    maxRetries: 1,
+    retryBaseDelayMs: 5,
+  });
 
   await assert.rejects(
     () => connector.getClient("8123"),
