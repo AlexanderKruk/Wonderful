@@ -47,9 +47,30 @@ function startFakeCustomerApi(port = 0) {
       return;
     }
 
+    if (clientId === "rate-limited") {
+      res.writeHead(429, {
+        "Content-Type": "application/json",
+        "Retry-After": "2",
+      });
+      res.end(JSON.stringify({ error: "rate_limited" }));
+      return;
+    }
+
+    if (clientId === "server-error") {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "internal_error" }));
+      return;
+    }
+
     if (clientId === "system-down") {
       res.writeHead(503, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "service_unavailable" }));
+      return;
+    }
+
+    if (clientId === "malformed-json") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end('{"client_no":"malformed-json"');
       return;
     }
 
