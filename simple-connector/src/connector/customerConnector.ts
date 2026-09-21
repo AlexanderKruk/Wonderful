@@ -58,10 +58,24 @@ export class CustomerConnector {
       throw new CustomerNotFoundError(clientId);
     }
 
+    if (
+      response.status === 429 ||
+      response.status === 500 ||
+      response.status === 503
+    ) {
+      throw new CustomerSystemUnavailableError();
+    }
+
     if (!response.ok) {
       throw new CustomerSystemUnavailableError();
     }
 
-    return (await response.json()) as CustomerSystemResponse;
+    try {
+      return (await response.json()) as CustomerSystemResponse;
+    } catch {
+      throw new InvalidCustomerResponseError(
+        "Customer system returned invalid JSON",
+      );
+    }
   }
 }
