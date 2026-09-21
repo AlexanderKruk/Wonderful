@@ -1,5 +1,7 @@
 import type { Client } from "../domain/client";
 import {
+  CustomerAuthenticationError,
+  CustomerAuthorizationError,
   CustomerNotFoundError,
   CustomerSystemUnavailableError,
   InvalidCustomerResponseError,
@@ -10,12 +12,14 @@ import {
 } from "./customerResponse";
 
 type CustomerConnectorOptions = {
+  accessToken?: string;
   timeoutMs?: number;
   maxRetries?: number;
   retryBaseDelayMs?: number;
 };
 
 export class CustomerConnector {
+  private readonly accessToken?: string;
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
   private readonly retryBaseDelayMs: number;
@@ -24,6 +28,7 @@ export class CustomerConnector {
     private readonly baseUrl: string,
     options: CustomerConnectorOptions = {},
   ) {
+    this.accessToken = options.accessToken;
     this.timeoutMs = options.timeoutMs ?? 1_000;
     this.maxRetries = options.maxRetries ?? 2;
     this.retryBaseDelayMs = options.retryBaseDelayMs ?? 50;
@@ -57,6 +62,14 @@ export class CustomerConnector {
     clientId: string,
   ): Promise<CustomerSystemResponse> {
     const response = await this.fetchWithRetry(clientId);
+
+    if (response.status === 401) {
+      throw new CustomerAuthenticationError();
+    }
+
+    if (response.status === 403) {
+      throw new CustomerAuthorizationError();
+    }
 
     if (response.status === 404) {
       throw new CustomerNotFoundError(clientId);
@@ -92,6 +105,11 @@ export class CustomerConnector {
 
       try {
         const response = await fetch(url, {
+          headers: this.accessToken
+            ? {
+                Authorization: `Bearer ${this.accessToken}`,
+              }
+            : undefined,
           signal: controller.signal,
         });
 
