@@ -5,9 +5,14 @@ const {
   CustomerConnector,
 } = require("../dist/connector/customerConnector");
 const {
+  CustomerAuthenticationError,
+  CustomerAuthorizationError,
   CustomerIdempotencyConflictError,
+  CustomerNotFoundError,
+  InvalidCustomerResponseError,
 } = require("../dist/connector/errors");
 const {
+  FORBIDDEN_TOKEN,
   VALID_TOKEN,
   startFakeCustomerApi,
 } = require("../fake-customer-api/server");
@@ -58,6 +63,93 @@ test("creates a client note", async () => {
     text: "Called customer",
   });
   assert.equal(getNoteCount("write-basic"), 1);
+});
+
+test("write rejects an invalid token without retry", async () => {
+  const connector = createConnector({
+    accessToken: "wrong-token",
+  });
+
+  await assert.rejects(
+    () =>
+      connector.createClientNote(
+        "write-auth-failure",
+        "x",
+        "req-auth-failure",
+      ),
+    CustomerAuthenticationError,
+  );
+
+  assert.equal(getRequestCount("write-auth-failure"), 1);
+  assert.equal(getNoteCount("write-auth-failure"), 0);
+});
+
+test("write rejects insufficient permission without retry", async () => {
+  const connector = createConnector({
+    accessToken: FORBIDDEN_TOKEN,
+  });
+
+  await assert.rejects(
+    () =>
+      connector.createClientNote(
+        "write-forbidden",
+        "x",
+        "req-forbidden",
+      ),
+    CustomerAuthorizationError,
+  );
+
+  assert.equal(getRequestCount("write-forbidden"), 1);
+  assert.equal(getNoteCount("write-forbidden"), 0);
+});
+
+test("write reports missing client without retry", async () => {
+  const connector = createConnector();
+
+  await assert.rejects(
+    () =>
+      connector.createClientNote(
+        "missing",
+        "x",
+        "req-missing",
+      ),
+    CustomerNotFoundError,
+  );
+
+  assert.equal(getRequestCount("missing"), 1);
+  assert.equal(getNoteCount("missing"), 0);
+});
+
+test("write rejects malformed JSON response without retry", async () => {
+  const connector = createConnector();
+
+  await assert.rejects(
+    () =>
+      connector.createClientNote(
+        "write-malformed-json",
+        "x",
+        "req-malformed-json",
+      ),
+    InvalidCustomerResponseError,
+  );
+
+  assert.equal(getRequestCount("write-malformed-json"), 1);
+});
+
+test("write rejects invalid response shape without retry", async () => {
+  const connector = createConnector();
+
+  await assert.rejects(
+    () =>
+      connector.createClientNote(
+        "write-invalid-shape",
+        "x",
+        "req-invalid-shape",
+      ),
+    InvalidCustomerResponseError,
+  );
+
+  assert.equal(getRequestCount("write-invalid-shape"), 1);
 });
 
 test("same idempotency key does not create a duplicate", async () => {
