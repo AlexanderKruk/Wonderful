@@ -18,7 +18,7 @@ async function showClient(
 }
 
 async function main(): Promise<void> {
-  const connector = new CustomerConnector();
+  const connector = new CustomerConnector("http://127.0.0.1:3001");
 
   await showClient(connector, "8123");
   await showClient(connector, "no-contact");
