@@ -1,4 +1,9 @@
 import type { Client } from "../domain/client";
+import {
+  CustomerNotFoundError,
+  CustomerSystemUnavailableError,
+  InvalidCustomerResponseError,
+} from "./errors";
 
 type CustomerSystemResponse = {
   client_no: string;
@@ -28,13 +33,23 @@ export class CustomerConnector {
       case "I":
         return "inactive";
       default:
-        throw new Error(`Unknown customer status: ${statusCode}`);
+        throw new InvalidCustomerResponseError(
+          `Unknown customer status: ${statusCode}`,
+        );
     }
   }
 
   private async getClientFromCustomerSystem(
     clientId: string,
   ): Promise<CustomerSystemResponse> {
+    if (clientId === "missing") {
+      throw new CustomerNotFoundError(clientId);
+    }
+
+    if (clientId === "system-down") {
+      throw new CustomerSystemUnavailableError();
+    }
+
     if (clientId === "no-contact") {
       return {
         client_no: clientId,
