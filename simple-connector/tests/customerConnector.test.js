@@ -1,4 +1,4 @@
-const test = require("node:test");
+const { after, before, test } = require("node:test");
 const assert = require("node:assert/strict");
 
 const { CustomerConnector } = require("../dist/connector/customerConnector");
@@ -7,9 +7,30 @@ const {
   CustomerSystemUnavailableError,
   InvalidCustomerResponseError,
 } = require("../dist/connector/errors");
+const {
+  startFakeCustomerApi,
+} = require("../fake-customer-api/server");
+
+let server;
+let baseUrl;
+
+before(async () => {
+  const started = await startFakeCustomerApi();
+  server = started.server;
+  baseUrl = started.baseUrl;
+});
+
+after(async () => {
+  await new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+});
 
 test("maps a customer-system response to Client", async () => {
-  const connector = new CustomerConnector();
+  const connector = new CustomerConnector(baseUrl);
 
   const client = await connector.getClient("8123");
 
@@ -22,7 +43,7 @@ test("maps a customer-system response to Client", async () => {
 });
 
 test("normalizes missing contact to null email", async () => {
-  const connector = new CustomerConnector();
+  const connector = new CustomerConnector(baseUrl);
 
   const client = await connector.getClient("no-contact");
 
@@ -30,7 +51,7 @@ test("normalizes missing contact to null email", async () => {
 });
 
 test("rejects an unknown customer status", async () => {
-  const connector = new CustomerConnector();
+  const connector = new CustomerConnector(baseUrl);
 
   await assert.rejects(
     () => connector.getClient("unknown-status"),
@@ -39,7 +60,7 @@ test("rejects an unknown customer status", async () => {
 });
 
 test("reports a missing customer", async () => {
-  const connector = new CustomerConnector();
+  const connector = new CustomerConnector(baseUrl);
 
   await assert.rejects(
     () => connector.getClient("missing"),
@@ -48,7 +69,7 @@ test("reports a missing customer", async () => {
 });
 
 test("reports customer-system unavailability", async () => {
-  const connector = new CustomerConnector();
+  const connector = new CustomerConnector(baseUrl);
 
   await assert.rejects(
     () => connector.getClient("system-down"),
