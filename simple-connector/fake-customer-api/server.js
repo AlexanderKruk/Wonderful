@@ -1,5 +1,8 @@
 const http = require("node:http");
 
+const VALID_TOKEN = "secret-token";
+const FORBIDDEN_TOKEN = "forbidden-token";
+
 function buildClient(clientId) {
   if (clientId === "no-contact") {
     return {
@@ -43,6 +46,26 @@ function startFakeCustomerApi(port = 0) {
 
     const clientId = decodeURIComponent(req.url.slice("/clients/".length));
     requestCounts.set(clientId, (requestCounts.get(clientId) ?? 0) + 1);
+
+    const authorization = req.headers.authorization;
+
+    if (!authorization || authorization === "Bearer wrong-token") {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "unauthorized" }));
+      return;
+    }
+
+    if (authorization === `Bearer ${FORBIDDEN_TOKEN}`) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "forbidden" }));
+      return;
+    }
+
+    if (authorization !== `Bearer ${VALID_TOKEN}`) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "unauthorized" }));
+      return;
+    }
 
     if (clientId === "missing") {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -135,7 +158,11 @@ function startFakeCustomerApi(port = 0) {
   });
 }
 
-module.exports = { startFakeCustomerApi };
+module.exports = {
+  FORBIDDEN_TOKEN,
+  VALID_TOKEN,
+  startFakeCustomerApi,
+};
 
 if (require.main === module) {
   startFakeCustomerApi(3001)
