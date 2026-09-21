@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "tsc",
+    "customer-api": "node fake-customer-api/server.js",
     "start": "node dist/index.js",
     "test": "npm run build && node --test tests/customerConnector.test.js"
   }
