@@ -135,6 +135,17 @@ test("rejects malformed JSON from the customer system", async () => {
   );
 });
 
+test("rejects valid JSON with an invalid response shape", async () => {
+  const connector = new CustomerConnector(baseUrl);
+
+  await assert.rejects(
+    () => connector.getClient("invalid-shape"),
+    InvalidCustomerResponseError,
+  );
+
+  assert.equal(getRequestCount("invalid-shape"), 1);
+});
+
 test("maps network failures to customer-system unavailability", async () => {
   const connector = new CustomerConnector("http://127.0.0.1:65534", {
     maxRetries: 1,
