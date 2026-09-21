@@ -32,6 +32,8 @@ function buildClient(clientId) {
 }
 
 function startFakeCustomerApi(port = 0) {
+  const requestCounts = new Map();
+
   const server = http.createServer((req, res) => {
     if (req.method !== "GET" || !req.url?.startsWith("/clients/")) {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -40,6 +42,7 @@ function startFakeCustomerApi(port = 0) {
     }
 
     const clientId = decodeURIComponent(req.url.slice("/clients/".length));
+    requestCounts.set(clientId, (requestCounts.get(clientId) ?? 0) + 1);
 
     if (clientId === "missing") {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -68,6 +71,24 @@ function startFakeCustomerApi(port = 0) {
       return;
     }
 
+    if (clientId === "flaky") {
+      const count = requestCounts.get(clientId);
+
+      if (count <= 2) {
+        res.writeHead(503, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "temporary_failure" }));
+        return;
+      }
+    }
+
+    if (clientId === "slow") {
+      setTimeout(() => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(buildClient(clientId)));
+      }, 200);
+      return;
+    }
+
     if (clientId === "malformed-json") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end('{"client_no":"malformed-json"');
@@ -91,6 +112,9 @@ function startFakeCustomerApi(port = 0) {
       resolve({
         server,
         baseUrl: `http://127.0.0.1:${address.port}`,
+        getRequestCount(clientId) {
+          return requestCounts.get(clientId) ?? 0;
+        },
       });
     });
   });
