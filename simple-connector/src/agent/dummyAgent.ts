@@ -25,19 +25,12 @@ export type DummyAgentInput = {
   requestId: string;
 };
 
-export type DummyAgentResult =
-  | {
-      success: true;
-      reply: string;
-      tool: "getClient" | "createClientNote";
-      result: GetClientToolResult | CreateClientNoteToolResult;
-    }
-  | {
-      success: false;
-      reply: string;
-      tool?: "getClient" | "createClientNote";
-      result?: GetClientToolResult | CreateClientNoteToolResult;
-    };
+export type DummyAgentResult = {
+  success: boolean;
+  reply: string;
+  tool?: "getClient" | "createClientNote";
+  result?: GetClientToolResult | CreateClientNoteToolResult;
+};
 
 type Decision =
   | {
