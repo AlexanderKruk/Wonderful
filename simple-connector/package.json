@@ -5,6 +5,7 @@
   "scripts": {
     "build": "tsc",
     "customer-api": "node fake-customer-api/server.js",
+    "webhook": "npm run build && node webhook-gateway/server.js",
     "start": "node dist/index.js",
     "test": "npm run build && node --test tests/*.test.js"
   }
