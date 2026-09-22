@@ -1,3 +1,4 @@
+import { DummyAgent } from "./agent/dummyAgent";
 import { CustomerConnector } from "./connector/customerConnector";
 import { createClientNoteTool } from "./tools/createClientNoteTool";
 import { createGetClientTool } from "./tools/getClientTool";
@@ -13,26 +14,32 @@ async function main(): Promise<void> {
   const getClientTool = createGetClientTool(connector);
   const createNoteTool = createClientNoteTool(connector);
 
-  console.log(
-    "get client:",
-    await getClientTool({ clientId: "8123" }),
-  );
+  const agent = new DummyAgent({
+    getClient: getClientTool,
+    createClientNote: createNoteTool,
+  });
 
   console.log(
-    "create note:",
-    await createNoteTool({
-      clientId: "8123",
-      text: "Called customer",
-      requestId: "demo-request-1",
+    "agent get:",
+    await agent.run({
+      message: "get client 8123",
+      requestId: "demo-get-1",
     }),
   );
 
   console.log(
-    "same request again:",
-    await createNoteTool({
-      clientId: "8123",
-      text: "Called customer",
-      requestId: "demo-request-1",
+    "agent write:",
+    await agent.run({
+      message: "add note 8123: Called customer",
+      requestId: "demo-write-1",
+    }),
+  );
+
+  console.log(
+    "agent same write again:",
+    await agent.run({
+      message: "add note 8123: Called customer",
+      requestId: "demo-write-1",
     }),
   );
 }
